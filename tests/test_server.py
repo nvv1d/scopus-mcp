@@ -9,22 +9,27 @@ from scopus_mcp.server import handle_call_tool, handle_list_tools
 
 
 class TestMCPTools(unittest.IsolatedAsyncioTestCase):
-    async def test_lists_the_four_remote_tools(self):
+    async def test_lists_the_search_and_abstract_tools(self):
         tools = await handle_list_tools()
         self.assertEqual(
             [tool.name for tool in tools],
-            ['search_scopus', 'get_abstract', 'get_author_info', 'search_authors'],
+            ['search_scopus', 'abstract_retrieval'],
         )
 
-    async def test_search_authors_uses_name_and_count(self):
+    async def test_abstract_retrieval_requests_meta_abs_by_default(self):
         client = unittest.mock.MagicMock()
-        client.search_authors = AsyncMock(return_value={'search-results': {'entry': []}})
+        client.get_abstract = AsyncMock(return_value={
+            'abstracts-retrieval-response': {
+                'coredata': {'dc:identifier': 'SCOPUS_ID:1'},
+                'item': {'bibrecord': {'head': {'abstracts': {'ce:abstract': 'Abstract text.'}}}},
+            }
+        })
 
         with patch('scopus_mcp.server.get_client', return_value=client):
-            result = await handle_call_tool('search_authors', {'author_name': 'Einstein', 'count': 3})
+            result = await handle_call_tool('abstract_retrieval', {'id_type': 'doi', 'id_value': '10.1000/example'})
 
-        client.search_authors.assert_awaited_once_with('Einstein', count=3)
-        self.assertEqual(json.loads(result[0].text), [])
+        client.get_abstract.assert_awaited_once_with('doi', '10.1000/example', view='META_ABS', field=None)
+        self.assertEqual(json.loads(result[0].text)['abstract'], 'Abstract text.')
 
     async def test_invalid_count_is_returned_as_a_tool_error(self):
         result = await handle_call_tool('search_scopus', {'query': 'TITLE(AI)', 'count': 26})
@@ -41,4 +46,7 @@ class TestVercelRoute(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['result']['tools'][0]['name'], 'search_scopus')
+        self.assertEqual(
+            [tool['name'] for tool in response.json()['result']['tools']],
+            ['search_scopus', 'abstract_retrieval'],
+        )

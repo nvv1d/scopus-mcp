@@ -65,17 +65,48 @@ def clean_abstract_details(data: Dict[str, Any]) -> Dict[str, Any]:
             'initials': auth.get('ce:initials')
         })
 
+    abstract_text = coredata.get('dc:description') or _extract_abstract_text(root)
+
     return {
         'scopus_id': coredata.get('dc:identifier', '').replace('SCOPUS_ID:', ''),
         'doi': coredata.get('prism:doi'),
         'title': coredata.get('dc:title'),
-        'description': coredata.get('dc:description'), # This is the abstract text
+        'abstract': abstract_text,
         'publication_name': coredata.get('prism:publicationName'),
         'cover_date': coredata.get('prism:coverDate'),
         'cited_by_count': coredata.get('citedby-count'),
         'authors': authors,
         'url': next((link['@href'] for link in coredata.get('link', []) if link.get('@ref') == 'scopus'), None)
     }
+
+def _extract_abstract_text(root: Dict[str, Any]) -> Optional[str]:
+    """Extracts Scopus's nested abstract content when coredata has no description."""
+    abstract_data = (
+        root.get('item', {})
+        .get('bibrecord', {})
+        .get('head', {})
+        .get('abstracts')
+    )
+    if not abstract_data:
+        return None
+
+    text = _flatten_text(abstract_data)
+    return text or None
+
+def _flatten_text(value: Any) -> str:
+    """Converts Elsevier's XML-to-JSON abstract structure into readable text."""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, list):
+        return ' '.join(filter(None, (_flatten_text(item) for item in value))).strip()
+    if isinstance(value, dict):
+        direct_text = value.get('$') or value.get('_')
+        if isinstance(direct_text, str):
+            return direct_text.strip()
+        return ' '.join(
+            filter(None, (_flatten_text(item) for key, item in value.items() if not key.startswith('@')))
+        ).strip()
+    return ''
 
 def clean_author_profile(data: Dict[str, Any]) -> Dict[str, Any]:
     """

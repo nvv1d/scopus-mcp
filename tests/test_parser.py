@@ -1,5 +1,4 @@
-import pytest
-from scopus_mcp.utils import clean_search_results, clean_abstract_details, clean_author_profile, clean_author_search_results
+from scopus_mcp.utils import clean_search_results, clean_abstract_details
 
 def test_clean_search_results_empty():
     assert clean_search_results({}) == []
@@ -43,25 +42,25 @@ def test_clean_abstract_details():
     cleaned = clean_abstract_details(data)
     assert cleaned['scopus_id'] == '999'
     assert cleaned['title'] == 'Abstract Title'
+    assert cleaned['abstract'] == 'This is an abstract.'
     assert len(cleaned['authors']) == 1
     assert cleaned['authors'][0]['auth_id'] == '111'
 
-def test_clean_author_search_results():
+def test_clean_abstract_details_extracts_nested_abstract_text():
     data = {
-        'search-results': {
-            'entry': [{
-                'dc:identifier': 'AUTHOR_ID:123',
-                'preferred-name': {'ce:indexed-name': 'Einstein, A.'},
-                'document-count': '42',
-                'affiliation-current': {'affiliation-name': 'Institute', 'affiliation-country': 'CH'},
-            }]
+        'abstracts-retrieval-response': {
+            'coredata': {'dc:identifier': 'SCOPUS_ID:123'},
+            'item': {
+                'bibrecord': {
+                    'head': {
+                        'abstracts': {
+                            'ce:abstract': {
+                                'ce:para': ['First paragraph.', 'Second paragraph.'],
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
-    assert clean_author_search_results(data) == [{
-        'author_id': '123',
-        'name': 'Einstein, A.',
-        'document_count': '42',
-        'affiliation': 'Institute',
-        'city': None,
-        'country': 'CH',
-    }]
+    assert clean_abstract_details(data)['abstract'] == 'First paragraph. Second paragraph.'

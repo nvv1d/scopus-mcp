@@ -22,16 +22,15 @@ The server automatically falls back to Vercel's writable temporary directory for
 
 ## Tools
 
-The server exposes four MCP tools:
+The server exposes two MCP tools:
 
 1. **`search_scopus`** — Search publications with Scopus advanced query syntax. Returns titles, authors, journals, citation counts, DOIs, and links.
    - `query` (required), `count` (1–25, default 5), `sort` (default `coverDate`)
-2. **`get_abstract`** — Retrieve an abstract and metadata by Scopus ID or DOI.
-   - `identifier` (required)
-3. **`get_author_info`** — Retrieve an author profile, including publication and citation metrics, h-index when returned by Scopus, and current affiliation.
-   - `author_id` (required)
-4. **`search_authors`** — Search author profiles by name.
-   - `author_name` (required), `count` (1–25, default 5)
+2. **`abstract_retrieval`** — Retrieve detailed publication metadata and actual abstract text.
+   - `id_type` (required): `scopus_id`, `eid`, `doi`, `pii`, or `pubmed_id`
+   - `id_value` (required): identifier value
+   - `view` (optional): defaults to `META_ABS`, which requests metadata and abstract text
+   - `field` (optional): comma-separated Scopus response fields
 
 ## Direct API Testing
 
@@ -50,11 +49,11 @@ curl -X POST https://your-deployment.vercel.app/mcp \
   -H 'Accept: application/json' \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_scopus","arguments":{"query":"TITLE(machine learning) AND PUBYEAR > 2020","count":5}}}'
 
-# Search author profiles
+# Retrieve an abstract by DOI
 curl -X POST https://your-deployment.vercel.app/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search_authors","arguments":{"author_name":"Einstein","count":3}}}'
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"abstract_retrieval","arguments":{"id_type":"doi","id_value":"10.1191/1478088706qp063oa"}}}'
 ```
 
 ## Scopus Query Syntax

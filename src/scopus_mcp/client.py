@@ -141,18 +141,23 @@ class ScopusClient:
         }
         return await self._request('GET', 'content/search/scopus', params, ttl=self.cache_config['search'])
 
-    async def get_abstract(self, scopus_id: str) -> Dict[str, Any]:
-        """
-        Retrieves abstract details.
-        Endpoint: content/abstract/scopus_id/{id}
-        """
-        identifier = scopus_id.replace('SCOPUS_ID:', '').replace('DOI:', '').replace('doi:', '')
-        endpoint = (
-            f'content/abstract/doi/{identifier}'
-            if identifier.startswith('10.')
-            else f'content/abstract/scopus_id/{identifier}'
+    async def get_abstract(
+        self,
+        id_type: str,
+        id_value: str,
+        view: str = 'META_ABS',
+        field: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Retrieves metadata and abstract text for a Scopus document."""
+        params: Dict[str, Any] = {'view': view}
+        if field:
+            params['field'] = field
+        return await self._request(
+            'GET',
+            f'content/abstract/{id_type}/{id_value}',
+            params,
+            ttl=self.cache_config['abstract'],
         )
-        return await self._request('GET', endpoint, ttl=self.cache_config['abstract'])
 
     async def get_author(self, author_id: str) -> Dict[str, Any]:
         """

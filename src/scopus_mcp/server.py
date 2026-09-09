@@ -10,8 +10,6 @@ from mcp.server.stdio import stdio_server
 from .client import ScopusClient
 from .utils import (
     clean_abstract_details,
-    clean_author_profile,
-    clean_author_search_results,
     clean_search_results,
 )
 
@@ -58,26 +56,14 @@ async def handle_list_tools() -> list[types.Tool]:
             }, "required": ["query"]},
         ),
         types.Tool(
-            name="get_abstract",
-            description="Retrieve a publication's abstract and metadata by Scopus ID or DOI.",
+            name="abstract_retrieval",
+            description="Retrieve detailed metadata and the actual abstract text for a Scopus document.",
             inputSchema={"type": "object", "properties": {
-                "identifier": {"type": "string", "description": "A Scopus ID or DOI."},
-            }, "required": ["identifier"]},
-        ),
-        types.Tool(
-            name="get_author_info",
-            description="Retrieve an author's Scopus profile, citation metrics, and affiliation by Author ID.",
-            inputSchema={"type": "object", "properties": {
-                "author_id": {"type": "string"},
-            }, "required": ["author_id"]},
-        ),
-        types.Tool(
-            name="search_authors",
-            description="Search Scopus author profiles by author name.",
-            inputSchema={"type": "object", "properties": {
-                "author_name": {"type": "string"},
-                "count": {"type": "integer", "default": 5, "minimum": 1, "maximum": 25},
-            }, "required": ["author_name"]},
+                "id_type": {"type": "string", "enum": ["scopus_id", "eid", "doi", "pii", "pubmed_id"], "description": "The type of identifier used for lookup."},
+                "id_value": {"type": "string", "description": "For example, DOI 10.1016/j.jclepro.2020.121092 or Scopus ID 85028623301."},
+                "view": {"type": "string", "enum": ["META", "META_ABS", "FULL", "REF", "ENTITLED"], "default": "META_ABS", "description": "META_ABS includes metadata and abstract text."},
+                "field": {"type": "string", "description": "Optional comma-separated list of response fields."},
+            }, "required": ["id_type", "id_value"]},
         ),
     ]
 
@@ -94,24 +80,22 @@ async def handle_call_tool(name: str, arguments: dict[str, Any] | None) -> list[
             data = await get_client().search_scopus(query, count=count, sort=arguments.get("sort", "coverDate"))
             return _text_result(clean_search_results(data))
 
-        if name == "get_abstract":
-            identifier = arguments.get("identifier")
-            if not isinstance(identifier, str) or not identifier.strip():
-                raise ValueError("identifier is required")
-            return _text_result(clean_abstract_details(await get_client().get_abstract(identifier)))
-
-        if name == "get_author_info":
-            author_id = arguments.get("author_id")
-            if not isinstance(author_id, str) or not author_id.strip():
-                raise ValueError("author_id is required")
-            return _text_result(clean_author_profile(await get_client().get_author(author_id)))
-
-        if name == "search_authors":
-            author_name = arguments.get("author_name")
-            if not isinstance(author_name, str) or not author_name.strip():
-                raise ValueError("author_name is required")
-            count = _count(arguments)
-            return _text_result(clean_author_search_results(await get_client().search_authors(author_name, count=count)))
+        if name == "abstract_retrieval":
+            id_type = arguments.get("id_type")
+            id_value = arguments.get("id_value")
+            valid_id_types = {"scopus_id", "eid", "doi", "pii", "pubmed_id"}
+            if id_type not in valid_id_types:
+                raise ValueError("id_type must be one of: scopus_id, eid, doi, pii, pubmed_id")
+            if not isinstance(id_value, str) or not id_value.strip():
+                raise ValueError("id_value is required")
+            view = arguments.get("view", "META_ABS")
+            if view not in {"META", "META_ABS", "FULL", "REF", "ENTITLED"}:
+                raise ValueError("view must be one of: META, META_ABS, FULL, REF, ENTITLED")
+            field = arguments.get("field")
+            if field is not None and not isinstance(field, str):
+                raise ValueError("field must be a string")
+            data = await get_client().get_abstract(id_type, id_value, view=view, field=field)
+            return _text_result(clean_abstract_details(data))
 
         raise ValueError(f"Unknown tool: {name}")
     except Exception as exc:
