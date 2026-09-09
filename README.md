@@ -1,145 +1,92 @@
-# Scopus MCP Server
+# Scopus MCP Server (Vercel Deployment)
 
-<!-- mcp-name: io.github.qwe4559999/scopus-mcp -->
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that provides unauthenticated, remote access to the Elsevier Scopus API for academic research queries. Deploy it to Vercel and connect an MCP client to `https://<your-deployment>.vercel.app/mcp`.
 
-[中文](README_CN.md) | **English**
+> The MCP endpoint itself does **not** require OAuth or any other client authentication. The server does require a Scopus API key, which remains private in Vercel's environment variables.
 
-> **💡 Check out the [Interaction Guide & Prompt Examples](USAGE_EXAMPLES.md) to see how to chat with this tool!**
+## Deploy to Vercel
 
-This is a Model Context Protocol (MCP) server that provides access to the Elsevier Scopus API. It allows AI assistants to search for academic papers, retrieve abstracts, and look up author profiles.
+1. Fork or push this repository to a Git provider connected to Vercel.
+2. Import the repository into Vercel. The included `vercel.json` routes `/mcp` to the Python ASGI function.
+3. In **Project Settings → Environment Variables**, add:
 
-**Please note that requesting an Elsevier Scopus API key generally requires that your organization or institution has a subscription to Elsevier database services. Additionally, to run this tool without manual setup, your device must have the `uv` package manager installed.**
+   | Name | Value |
+   | --- | --- |
+   | `SCOPUS_API_KEY` | Your Elsevier Scopus API key |
 
-## Configuration
+4. Deploy. Your MCP endpoint is `https://<your-deployment>.vercel.app/mcp`.
 
-### Setup Steps
-1.  Go to [Elsevier Developer Portal](https://dev.elsevier.com/) to apply for an API key.
-2.  Create a `config.json` file in the project root (or copy from `config.json.example`) and fill in your key:
-    ```json
-    {
-      "api_key": "YOUR_KEY_HERE"
-    }
-    ```
-3.  Edit `MCP_tool_config.json`, modifying the folder path (pay attention to the slash direction).
-4.  Finally, import the configuration into your MCP client (e.g., Claude Desktop) by copying the content of `MCP_tool_config.json`.
+The API key is only sent by the server to Elsevier; do not put it in MCP client configuration or request headers.
 
-## 🚀 Quick Start (Zero Setup)
+## Tools
 
-**Prerequisite**: You must have `uv` installed.
-- Windows: `powershell -c "irm https://astral.sh/uv/install.ps1 | iex"`
-- macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+The server exposes four MCP tools:
 
-If you use Claude Desktop, you can skip downloading the code and just configure it directly:
+1. **`search_scopus`** — Search publications with Scopus advanced query syntax. Returns titles, authors, journals, citation counts, DOIs, and links.
+   - `query` (required), `count` (1–25, default 5), `sort` (default `coverDate`)
+2. **`get_abstract`** — Retrieve an abstract and metadata by Scopus ID or DOI.
+   - `identifier` (required)
+3. **`get_author_info`** — Retrieve an author profile, including publication and citation metrics, h-index when returned by Scopus, and current affiliation.
+   - `author_id` (required)
+4. **`search_authors`** — Search author profiles by name.
+   - `author_name` (required), `count` (1–25, default 5)
 
-1.  **Get Key**: Get a free API Key from [Elsevier Developer Portal](https://dev.elsevier.com/). (⚠️ **Note**: Educational/Institutional email is recommended; public email domains may be rejected).
-2.  **Configure**: Edit `%APPDATA%\Claude\claude_desktop_config.json` (Windows) or `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS).
-3.  **Add**:
+## Direct API Testing
 
-```json
-{
-  "mcpServers": {
-    "scopus-assistant": {
-      "command": "uvx",
-      "args": [
-        "scopus-mcp"
-      ],
-      "env": {
-        "SCOPUS_API_KEY": "PUT_YOUR_KEY_HERE"
-      }
-    }
-  }
-}
-```
-
-*(If you don't have `uv`, see [Installation](#installation) for manual setup)*
-
-### Using with Trae
-
-In Trae Settings -> MCP Servers -> Click **Add** -> Select **Manual Configuration (JSON)**, then paste:
-
-```json
-{
-  "mcpServers": {
-    "scopus-assistant": {
-      "command": "uvx",
-      "args": [
-        "scopus-mcp"
-      ],
-      "env": {
-        "SCOPUS_API_KEY": "PUT_YOUR_KEY_HERE"
-      }
-    }
-  }
-}
-```
-
-### Using with Cursor
-
-1.  Open **Cursor Settings** -> **Features** -> **MCP Servers**.
-2.  Click **+ Add New MCP Server**.
-3.  Fill in the details:
-    *   **Name**: `scopus-mcp`
-    *   **Type**: `command` (stdio)
-    *   **Command**: `uvx scopus-mcp`
-4.  **Important**: You need to set `SCOPUS_API_KEY` in your system environment variables.
-
-## Installation
-
-1.  Ensure you have Python 3.10+ installed.
-2.  Install dependencies:
-    ```bash
-    pip install .
-    ```
-
-## Usage
-
-### Running the Server
-
-You can run the server using `uvx` (recommended) or directly with python.
+No `Authorization` header is required for these calls.
 
 ```bash
-# Using uvx
-uvx --from . scopus-mcp
+# List available tools
+curl -X POST https://your-deployment.vercel.app/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 
-# Or directly
-python -m scopus_mcp.server
+# Search publications
+curl -X POST https://your-deployment.vercel.app/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_scopus","arguments":{"query":"TITLE(machine learning) AND PUBYEAR > 2020","count":5}}}'
+
+# Search author profiles
+curl -X POST https://your-deployment.vercel.app/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"search_authors","arguments":{"author_name":"Einstein","count":3}}}'
 ```
 
-### Available Tools
+## Scopus Query Syntax
 
-1.  **`search_scopus`**
-    -   Searches the Scopus database using the standard query syntax.
-    -   Arguments:
-        -   `query` (string): The search query (e.g., `TITLE("Artificial Intelligence")`).
-        -   `count` (integer): Number of results to return (default: 5).
-        -   `sort` (string): Sort order (e.g., `coverDate`).
+Common field codes include:
 
-2.  **`get_abstract_details`**
-    -   Retrieves detailed information for a specific document.
-    -   Arguments:
-        -   `scopus_id` (string): The Scopus ID of the document.
+- `TITLE()` — search titles.
+- `AUTHOR-NAME()` — search author names.
+- `AFFIL()` — search affiliations.
+- `PUBYEAR` — publication year.
+- `DOCTYPE()` — document type, such as `ar` (article), `re` (review), or `cp` (conference paper).
+- `SUBJAREA()` — subject area.
 
-3.  **`get_author_profile`**
-    -   Retrieves an author's profile information.
-    -   Arguments:
-        -   `author_id` (string): The Scopus Author ID.
+Examples:
 
-## Development
+```text
+TITLE(deep learning) AND PUBYEAR > 2020
+AUTHOR-NAME(Smith) AND AFFIL(MIT)
+TITLE-ABS-KEY(cancer treatment) AND DOCTYPE(ar)
+```
 
-Run tests with:
+## Local development
+
 ```bash
-pytest
+uv sync --extra dev
+uv run pytest
 ```
+
+For local stdio MCP use, set `SCOPUS_API_KEY` and run `uv run scopus-mcp`.
+
+## API limits
+
+Scopus API rate limits depend on your subscription tier. Search requests are limited to 25 results per request, and institutional access may be needed for full text.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments & Contributors
-
-<a href="https://github.com/qwe4559999/scopus-mcp/graphs/contributors">
-  <img alt="contributors" src="https://contrib.rocks/image?repo=qwe4559999/scopus-mcp" />
-</a>
-
-*   **[thinktraveller](https://github.com/thinktraveller)** - *Initial Work & Core Development*
-*   **[qwe4559999](https://github.com/qwe4559999)** - *Maintainer*
+[MIT](LICENSE)

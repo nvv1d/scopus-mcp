@@ -146,8 +146,13 @@ class ScopusClient:
         Retrieves abstract details.
         Endpoint: content/abstract/scopus_id/{id}
         """
-        clean_id = scopus_id.replace('SCOPUS_ID:', '')
-        return await self._request('GET', f'content/abstract/scopus_id/{clean_id}', ttl=self.cache_config['abstract'])
+        identifier = scopus_id.replace('SCOPUS_ID:', '').replace('DOI:', '').replace('doi:', '')
+        endpoint = (
+            f'content/abstract/doi/{identifier}'
+            if identifier.startswith('10.')
+            else f'content/abstract/scopus_id/{identifier}'
+        )
+        return await self._request('GET', endpoint, ttl=self.cache_config['abstract'])
 
     async def get_author(self, author_id: str) -> Dict[str, Any]:
         """
@@ -156,3 +161,12 @@ class ScopusClient:
         """
         clean_id = author_id.replace('AUTHOR_ID:', '')
         return await self._request('GET', f'content/author/author_id/{clean_id}', ttl=self.cache_config['author'])
+
+    async def search_authors(self, author_name: str, count: int = 25) -> Dict[str, Any]:
+        """Searches Scopus author profiles by name."""
+        params = {
+            'query': f'AUTHLASTNAME({author_name})',
+            'count': count,
+            'start': 0,
+        }
+        return await self._request('GET', 'content/search/author', params, ttl=self.cache_config['author'])

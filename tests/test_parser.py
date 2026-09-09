@@ -1,5 +1,5 @@
 import pytest
-from scopus_mcp.utils import clean_search_results, clean_abstract_details, clean_author_profile
+from scopus_mcp.utils import clean_search_results, clean_abstract_details, clean_author_profile, clean_author_search_results
 
 def test_clean_search_results_empty():
     assert clean_search_results({}) == []
@@ -45,3 +45,23 @@ def test_clean_abstract_details():
     assert cleaned['title'] == 'Abstract Title'
     assert len(cleaned['authors']) == 1
     assert cleaned['authors'][0]['auth_id'] == '111'
+
+def test_clean_author_search_results():
+    data = {
+        'search-results': {
+            'entry': [{
+                'dc:identifier': 'AUTHOR_ID:123',
+                'preferred-name': {'ce:indexed-name': 'Einstein, A.'},
+                'document-count': '42',
+                'affiliation-current': {'affiliation-name': 'Institute', 'affiliation-country': 'CH'},
+            }]
+        }
+    }
+    assert clean_author_search_results(data) == [{
+        'author_id': '123',
+        'name': 'Einstein, A.',
+        'document_count': '42',
+        'affiliation': 'Institute',
+        'city': None,
+        'country': 'CH',
+    }]
