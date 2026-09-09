@@ -36,6 +36,21 @@ class TestScopusClient(unittest.IsolatedAsyncioTestCase):
         mock_request.assert_called_with('GET', 'https://api.elsevier.com/content/search/scopus', params={'query': 'AI', 'count': 25, 'start': 0, 'sort': 'coverDate', 'view': 'STANDARD'})
 
     @patch('scopus_mcp.client.httpx.AsyncClient.request')
+    async def test_abstract_retrieval_requests_meta_abs_view(self, mock_request):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'abstracts-retrieval-response': {}}
+        mock_request.return_value = mock_response
+
+        await self.client.get_abstract('doi', '10.1191/1478088706qp063oa')
+
+        mock_request.assert_called_with(
+            'GET',
+            'https://api.elsevier.com/content/abstract/doi/10.1191/1478088706qp063oa',
+            params={'view': 'META_ABS'},
+        )
+
+    @patch('scopus_mcp.client.httpx.AsyncClient.request')
     async def test_rate_limit_retry(self, mock_request):
         # First call 429, second 200
         response_429 = MagicMock()
