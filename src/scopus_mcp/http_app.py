@@ -35,6 +35,12 @@ class MCPASGIApp:
 
 
 app = Starlette(
-    routes=[Route("/", health), Route("/mcp", endpoint=MCPASGIApp())],
+    routes=[
+        Route("/", health),
+        # Vercel invokes api/index.py at /api after applying the /mcp rewrite.
+        # Keep /mcp too so the app behaves identically when run as a normal ASGI app.
+        Route("/api", endpoint=MCPASGIApp()),
+        Route("/mcp", endpoint=MCPASGIApp()),
+    ],
     lifespan=lifespan,
 )
