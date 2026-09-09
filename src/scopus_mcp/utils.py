@@ -102,6 +102,7 @@ def clean_author_profile(data: Dict[str, Any]) -> Dict[str, Any]:
         'document_count': core.get('document-count'),
         'cited_by_count': core.get('cited-by-count'),
         'citation_count': core.get('citation-count'),
+        'h_index': core.get('h-index'),
         'name': {
             'surname': name_variant.get('surname'),
             'given_name': name_variant.get('given-name'),
@@ -110,6 +111,24 @@ def clean_author_profile(data: Dict[str, Any]) -> Dict[str, Any]:
         'current_affiliation': _extract_affiliation(profile),
         'url': next((link['@href'] for link in core.get('link', []) if link.get('@ref') == 'scopus-author'), None)
     }
+
+def clean_author_search_results(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Extracts the useful fields from Scopus Author Search API responses."""
+    entries = data.get('search-results', {}).get('entry', []) if data else []
+    if isinstance(entries, dict):
+        entries = [entries]
+
+    return [
+        {
+            'author_id': entry.get('dc:identifier', '').replace('AUTHOR_ID:', ''),
+            'name': entry.get('preferred-name', {}).get('ce:indexed-name'),
+            'document_count': entry.get('document-count'),
+            'affiliation': entry.get('affiliation-current', {}).get('affiliation-name'),
+            'city': entry.get('affiliation-current', {}).get('affiliation-city'),
+            'country': entry.get('affiliation-current', {}).get('affiliation-country'),
+        }
+        for entry in entries
+    ]
 
 def _extract_affiliation(profile: Dict[str, Any]) -> Optional[str]:
     """Helper to extract current affiliation name."""
