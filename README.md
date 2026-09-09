@@ -18,6 +18,8 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that p
 
 The API key is only sent by the server to Elsevier; do not put it in MCP client configuration or request headers.
 
+The server automatically falls back to Vercel's writable temporary directory for its response cache when the runtime home directory is read-only. Set `SCOPUS_MCP_CACHE_DIR` only if you need to use a different writable cache location.
+
 ## Tools
 
 The server exposes four MCP tools:
